@@ -278,7 +278,8 @@
       </section>
 
       <section class="card" aria-labelledby="h-routines">
-        <h2 id="h-routines">Daily routines <small>Resets each day</small></h2>
+        <h2 id="h-routines">Daily routines <small>Clears each morning</small></h2>
+        <p class="note">Tick these off as you do them. The boxes clear at midnight so you can start fresh, and your streaks keep counting.</p>
         <ul id="routines"></ul>
         <div class="add">
           <input type="text" id="newRoutine" placeholder="Add a routine" aria-label="New routine">
@@ -299,12 +300,13 @@
 
       <section class="card" aria-labelledby="h-sched">
         <h2 id="h-sched">Today's schedule <small id="todayName"></small></h2>
+        <p class="note">Type straight into these boxes. Changes save on their own and show on the Week tab too.</p>
         <dl id="todaySlots"></dl>
       </section>
 
       <section class="card" aria-labelledby="h-plan">
         <h2 id="h-plan">Today's lifting plan</h2>
-        <div id="todayPlan" class="plan"></div>
+        <textarea id="todayPlan" aria-label="Today's lifting plan" placeholder="One exercise per line, e.g. Back squat 3x5"></textarea>
         <div class="add"><button class="btn small" id="goLift">Start lifting log</button></div>
       </section>
 
@@ -847,18 +849,30 @@
   }
   function renderToday() {
     $("todayName").textContent = todayName;
-    var dlEl = $("todaySlots"); dlEl.innerHTML = "";
-    SLOTS.forEach(function (s) {
-      var v = (S.week[todayName] && S.week[todayName][s[0]]) || "";
-      var row = h("div", { class: "slot" });
-      row.appendChild(h("dt", null, s[1])); row.appendChild(h("dd", null, v || "Nothing planned"));
-      dlEl.appendChild(row);
-    });
-    var plan = S.lifting[todayName] || "", box = $("todayPlan");
-    box.textContent = plan || "No lifting planned. Add one on the Week tab.";
-    box.className = plan ? "plan" : "plan empty";
+    var dlEl = $("todaySlots"), focusId = document.activeElement && document.activeElement.id;
+    if (!(focusId && focusId.indexOf("today-") === 0)) {
+      dlEl.innerHTML = "";
+      SLOTS.forEach(function (sl) {
+        var v = (S.week[todayName] && S.week[todayName][sl[0]]) || "";
+        var row = h("div", { class: "slot" });
+        row.appendChild(h("dt", null, sl[1]));
+        var dd = h("dd"), inp = h("input", { type: "text", id: "today-" + sl[0], placeholder: "Nothing planned", "aria-label": sl[1] + " plan for today" });
+        inp.value = v;
+        inp.oninput = function () {
+          S.week[todayName] = S.week[todayName] || {}; S.week[todayName][sl[0]] = inp.value; saveS();
+          var w = $("wk-" + todayName + "-" + sl[0]); if (w) w.value = inp.value;
+        };
+        dd.appendChild(inp); row.appendChild(dd); dlEl.appendChild(row);
+      });
+    }
+    var box = $("todayPlan");
+    if (document.activeElement !== box) box.value = S.lifting[todayName] || "";
     renderStats();
   }
+  $("todayPlan").addEventListener("input", function () {
+    S.lifting[todayName] = $("todayPlan").value; saveS(); renderStats(); renderLiftPlanBtn();
+    var w = $("lift-" + todayName); if (w) w.value = $("todayPlan").value;
+  });
   $("addRoutine").onclick = function () {
     var v = $("newRoutine").value.trim(); if (!v) return;
     var r = { text: v, done: false }; if ($("newRoutineTime").value) r.time = $("newRoutineTime").value;
